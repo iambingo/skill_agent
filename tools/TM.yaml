@@ -23,12 +23,29 @@ parameters:
       pt_BR: Command
       ja_JP: コマンド
     human_description:
-      en_US: "supported commands: add, delete, list, download"
-      zh_Hans: "支持：查看技能、新增技能、删除技能N、下载技能N"
+      en_US: "supported commands: 查看技能, 新增技能, 删除技能N, 下载技能N, 查看空间权限, 授权技能N, 撤销授权N"
+      zh_Hans: "支持：查看技能、新增技能、删除技能N、下载技能N、查看空间权限、授权技能N、撤销授权N"
       pt_BR: "Gerenciar pacotes de habilidades locais (adicionar/remover/visualizar/baixar)."
       ja_JP: "ローカルのスキルパッケージを管理（追加/削除/表示/ダウンロード）"
-    llm_description: "supported commands: add, delete, list, download"
+    llm_description: "supported commands: 查看技能, 新增技能, 删除技能N, 下载技能N, 查看空间权限, 授权技能N, 撤销授权N"
     form: llm
+
+  - name: workspace_id
+    type: string
+    required: false
+    label:
+      en_US: Workspace ID
+      zh_Hans: 空间 ID
+      pt_BR: ID do Workspace
+      ja_JP: ワークスペース ID
+    human_description:
+      en_US: "Workspace identifier for permission isolation. When adding a skill with this set, only this workspace can use that skill. Also used for 授权技能N and 撤销授权N commands."
+      zh_Hans: "工作空间标识符。新增技能时若填此字段，技能仅对该空间可见（私有技能）；授权/撤销授权命令也需要此字段。"
+      pt_BR: "Identificador de workspace para isolamento de permissões de skill."
+      ja_JP: "権限分離のためのワークスペース識別子。"
+    llm_description: "Workspace identifier for skill permission isolation."
+    form: form
+
   - name: files
     type: files
     required: false

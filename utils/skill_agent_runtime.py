@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -41,30 +42,47 @@ class _AgentRuntime:
         cached = self._skill_metadata_cache.get(skill_name)
         return bool(isinstance(cached, dict) and cached.get("skill") == skill_name)
 
+    @staticmethod
+    def _load_workspace_permissions(skills_root: str) -> dict[str, list[str]]:
+        """
+        Read skills_root/.workspace_permissions.json.
+        Format: { "skill_folder": ["workspace_id_1", "workspace_id_2"], ... }
+        Skills absent from the file are considered public (no restrictions).
+        Skills present with an empty list are private (no workspace can access).
+        """
+        perm_file = os.path.join(skills_root, ".workspace_permissions.json")
+        if not os.path.isfile(perm_file):
+            return {}
+        try:
+            with open(perm_file, encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                return {}
+            return {k: v for k, v in data.items() if isinstance(k, str) and isinstance(v, list)}
+        except Exception:
+            return {}
+
     def load_skills_index(self, workspace_id: str | None = None) -> dict[str, Any]:
         if not self.skills_root:
             return {"root": None, "skills": []}
         wid = (workspace_id or "").strip()
+        # Load workspace permission map once (only needed when workspace_id is set)
+        perm_map: dict[str, list[str]] = self._load_workspace_permissions(self.skills_root) if wid else {}
         skills: list[dict[str, Any]] = []
         for folder in sorted(os.listdir(self.skills_root)):
             path = os.path.join(self.skills_root, folder)
             if not os.path.isdir(path):
                 continue
+            # Workspace permission isolation:
+            # - Skills absent from perm_map = public, always visible
+            # - Skills present in perm_map = visible only to the listed workspace_ids
+            if wid and folder in perm_map:
+                if wid not in perm_map[folder]:
+                    continue
             skill_md = os.path.join(path, "SKILL.md")
             meta: dict[str, str] = {}
             if os.path.isfile(skill_md):
                 meta = _parse_frontmatter(_read_text(skill_md, 4000))
-            # Workspace permission isolation:
-            # If workspace_id is provided, skip skills that have an `allowed_workspaces`
-            # list that does NOT include the current workspace_id.
-            # Skills with no `allowed_workspaces` (or an empty value) are accessible
-            # to all workspaces (backward-compatible).
-            if wid:
-                raw_allowed = (meta.get("allowed_workspaces") or "").strip()
-                if raw_allowed:
-                    allowed = {w.strip() for w in raw_allowed.split(",") if w.strip()}
-                    if wid not in allowed:
-                        continue
             skills.append(
                 {
                     "name": meta.get("name") or folder,
