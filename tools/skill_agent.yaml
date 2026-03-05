@@ -113,6 +113,39 @@ parameters:
       ja_JP: 以前の実行から挿入する原文のターン数
     llm_description: Inject previous turns as raw transcript for continuity.
     form: form
+
+  - name: skill
+    type: string
+    required: false
+    label:
+      en_US: Target Skill
+      zh_Hans: 指定技能
+      pt_BR: Target Skill
+      ja_JP: 対象スキル
+    human_description:
+      en_US: "Directly specify the skill folder name to use (bypasses intent recognition). Leave empty to let the agent select the best skill automatically."
+      zh_Hans: "直接指定要使用的技能文件夹名称（跳过意图识别）。留空则由 Agent 根据问题自动选择最合适的技能。"
+      pt_BR: "Especifique diretamente o nome da pasta de skill a usar (ignora o reconhecimento de intenção). Deixe vazio para seleção automática."
+      ja_JP: "使用するスキルフォルダ名を直接指定します（意図認識をバイパス）。空白の場合はエージェントが自動選択します。"
+    llm_description: "Directly specify the skill folder name to use. Leave empty to auto-select based on user intent."
+    form: llm
+
+  - name: workspace_id
+    type: string
+    required: false
+    label:
+      en_US: Workspace ID
+      zh_Hans: 空间 ID
+      pt_BR: ID do Workspace
+      ja_JP: ワークスペース ID
+    human_description:
+      en_US: "Workspace identifier for skill permission isolation. Only skills that allow this workspace (via allowed_workspaces in SKILL.md) will be visible to the agent. Leave empty to show all skills."
+      zh_Hans: "工作空间标识符，用于技能权限隔离。只有在 SKILL.md 的 allowed_workspaces 字段中允许该空间的技能才对 Agent 可见。留空则显示全部技能。"
+      pt_BR: "Identificador de workspace para isolamento de permissões de skill. Deixe vazio para mostrar todas as skills."
+      ja_JP: "スキル権限分離のためのワークスペース識別子。空白の場合はすべてのスキルを表示します。"
+    llm_description: "Workspace identifier for skill permission isolation."
+    form: form
+
 extra:
   python:
     source: tools/skill_agent.py

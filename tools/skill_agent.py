@@ -62,6 +62,10 @@ class SkillAgentTool(Tool):
         history_turns = int(tool_parameters.get("history_turns") or 0)
         system_prompt = tool_parameters.get("system_prompt") or "你是一个xxxx"
         skills_root = _detect_skills_root(tool_parameters.get("skills_root"))
+        # Feature 1: targeted skill selection (bypasses intent recognition)
+        target_skill = (str(tool_parameters.get("skill") or "")).strip() or None
+        # Feature 2: workspace permission isolation
+        workspace_id = (str(tool_parameters.get("workspace_id") or "")).strip() or None
 
         if not query or not isinstance(query, str):
             yield self.create_text_message("❌缺少 query 参数\n")
@@ -215,26 +219,59 @@ class SkillAgentTool(Tool):
                         if a:
                             history_messages.append(AssistantPromptMessage(content=a))
 
-        skills_index = runtime.load_skills_index()
+        skills_index = runtime.load_skills_index(workspace_id=workspace_id)
+
+        # Feature 1: if a specific skill is targeted, filter the index to that skill only
+        targeted_skill_note = “”
+        if target_skill:
+            all_skills = skills_index.get(“skills”) or []
+            # Match by folder name first, then by display name (case-insensitive)
+            matched = [
+                s for s in all_skills
+                if str(s.get(“folder”) or “”).strip().lower() == target_skill.lower()
+            ]
+            if not matched:
+                matched = [
+                    s for s in all_skills
+                    if str(s.get(“name”) or “”).strip().lower() == target_skill.lower()
+                ]
+            if matched:
+                skills_index = {**skills_index, “skills”: matched}
+                targeted_skill_note = (
+                    f”\n\n[定向技能]\n”
+                    f”用户已明确指定使用技能「{matched[0].get('folder') or target_skill}」，”
+                    f”请跳过意图识别，直接调用该技能完成任务。\n”
+                )
+            else:
+                skills_index = {**skills_index, “skills”: []}
+                targeted_skill_note = (
+                    f”\n\n[定向技能]\n”
+                    f”用户指定了技能「{target_skill}」，但在当前可用技能列表中未找到该技能”
+                    + (f”（workspace_id={workspace_id}）” if workspace_id else “”)
+                    + “。请告知用户该技能不存在或无权限访问。\n”
+                )
+
         try:
-            skills_count = len(skills_index.get("skills") or []) if isinstance(skills_index, dict) else 0
+            skills_count = len(skills_index.get(“skills”) or []) if isinstance(skills_index, dict) else 0
         except Exception:
             skills_count = 0
         _dbg(
-            "start "
+            “start “
             + _model_brief(model)
-            + f" session_dir={session_dir} skills_root={skills_root!s} skills_count={skills_count} "
-            + f"query_len={len(query)}"
+            + f” session_dir={session_dir} skills_root={skills_root!s} skills_count={skills_count} “
+            + f”query_len={len(query)}”
+            + (f” target_skill={target_skill}” if target_skill else “”)
+            + (f” workspace_id={workspace_id}” if workspace_id else “”)
         )
         system_content = (
             system_prompt.strip()
-            + "\n\n你是一个使用 Skills 文件夹作为“工具箱”的通用型 Agent。\n"
-            + "\n[会话路径]\n"
-            + f"- session_dir: {session_dir}\n"
-            + f"- skills_root: {skills_root}\n"
-            + "你必须遵循渐进式披露流程：\n"
-            + "1) 只根据技能元数据（name/description）判断可能相关的技能\n"
-            + "2) 触发时才调用 get_skill_metadata 读取 SKILL.md（说明文档）\n"
+            + “\n\n你是一个使用 Skills 文件夹作为”工具箱”的通用型 Agent。\n”
+            + “\n[会话路径]\n”
+            + f”- session_dir: {session_dir}\n”
+            + f”- skills_root: {skills_root}\n”
+            + “你必须遵循渐进式披露流程：\n”
+            + “1) 只根据技能元数据（name/description）判断可能相关的技能\n”
+            + “2) 触发时才调用 get_skill_metadata 读取 SKILL.md（说明文档）\n”
             + "3) 任何对技能的进一步操作（list_skill_files/read_skill_file/run_skill_command）之前，必须先 get_skill_metadata；若未执行，本系统会拒绝该调用并要求你先补读说明书。\n"
             + "4) 按说明书内容执行脚本/命令，或进一步搜索资料前，必须先调用 list_skill_files 查看技能包的目录结构，以确保在正确的目录执行命令。\n"
             + "5) 只有在需要更深信息时，才调用 read_skill_file\n"
@@ -270,6 +307,7 @@ class SkillAgentTool(Tool):
             + '或 {"type":"final","content":"..."}\n\n'
             + "技能索引（用于判断是否需要调用技能）：\n"
             + json.dumps(skills_index, ensure_ascii=False)
+            + (targeted_skill_note or "")
             + (resume_context or "")
         )
 

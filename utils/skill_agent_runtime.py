@@ -41,9 +41,10 @@ class _AgentRuntime:
         cached = self._skill_metadata_cache.get(skill_name)
         return bool(isinstance(cached, dict) and cached.get("skill") == skill_name)
 
-    def load_skills_index(self) -> dict[str, Any]:
+    def load_skills_index(self, workspace_id: str | None = None) -> dict[str, Any]:
         if not self.skills_root:
             return {"root": None, "skills": []}
+        wid = (workspace_id or "").strip()
         skills: list[dict[str, Any]] = []
         for folder in sorted(os.listdir(self.skills_root)):
             path = os.path.join(self.skills_root, folder)
@@ -53,6 +54,17 @@ class _AgentRuntime:
             meta: dict[str, str] = {}
             if os.path.isfile(skill_md):
                 meta = _parse_frontmatter(_read_text(skill_md, 4000))
+            # Workspace permission isolation:
+            # If workspace_id is provided, skip skills that have an `allowed_workspaces`
+            # list that does NOT include the current workspace_id.
+            # Skills with no `allowed_workspaces` (or an empty value) are accessible
+            # to all workspaces (backward-compatible).
+            if wid:
+                raw_allowed = (meta.get("allowed_workspaces") or "").strip()
+                if raw_allowed:
+                    allowed = {w.strip() for w in raw_allowed.split(",") if w.strip()}
+                    if wid not in allowed:
+                        continue
             skills.append(
                 {
                     "name": meta.get("name") or folder,
