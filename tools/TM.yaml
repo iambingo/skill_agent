@@ -43,7 +43,7 @@ parameters:
       pt_BR: "Zip package(s) for add command."
       ja_JP: "新增技能 用の zip"
     llm_description: "Zip package(s) for add command"
-    form: form
+    form: llm
 extra:
   python:
     source: tools/TM.py
