@@ -28,8 +28,13 @@ def get_file_content(url: str, timeout: int = 30) -> bytes:
 def get_skills_dir() -> Path:
     root = Path(__file__).resolve().parent.parent
     skills_dir = root / "skills"
-    skills_dir.mkdir(parents=True, exist_ok=True)
-    return skills_dir
+    try:
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        return skills_dir
+    except OSError:
+        fallback = Path("/tmp/skill_agent_skills")
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback
 
 
 def list_skills_sorted() -> list[Path]:

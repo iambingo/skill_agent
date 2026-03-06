@@ -21,7 +21,7 @@ def _detect_skills_root(explicit_path: str | None) -> str | None:
         return os.path.abspath(env_path)
 
     plugin_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    candidates = [os.path.join(plugin_root, "skills")]
+    candidates = [os.path.join(plugin_root, "skills"), "/tmp/skill_agent_skills"]
     for p in candidates:
         if os.path.isdir(p):
             return os.path.abspath(p)
