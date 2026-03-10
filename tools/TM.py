@@ -26,6 +26,10 @@ def get_file_content(url: str, timeout: int = 30) -> bytes:
 
 
 def get_skills_dir() -> Path:
+    storage_dir = Path("/app/storage/skills")
+    if storage_dir.parent.exists():
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        return storage_dir
     root = Path(__file__).resolve().parent.parent
     skills_dir = root / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
