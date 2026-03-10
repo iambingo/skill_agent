@@ -14,6 +14,21 @@ description:
     ja_JP: "Skill_Agent は、Skill 進化的披露モードに基づいてタスクを実行できる Agent プラグインです。"
   llm: "Skill_Agent is an Agent plugin that can execute tasks based on the Skill progressive disclosure mode"
 parameters:
+  - name: project_name
+    type: string
+    required: true
+    label:
+      en_US: Project Name
+      zh_Hans: 项目名称
+      pt_BR: Project Name
+      ja_JP: プロジェクト名
+    human_description:
+      en_US: "Project name used to namespace skills. Only skills under this project will be available to the agent."
+      zh_Hans: "项目名称，Agent 只会使用该项目下的技能包"
+      pt_BR: "Nome do projeto para isolar os pacotes de habilidades."
+      ja_JP: "プロジェクト名。このプロジェクト配下のスキルのみ使用されます。"
+    llm_description: "Project name to namespace skills"
+    form: form
   - name: query
     type: string
     required: true

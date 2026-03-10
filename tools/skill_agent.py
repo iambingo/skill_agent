@@ -61,7 +61,13 @@ class SkillAgentTool(Tool):
         memory_turns = int(tool_parameters.get("memory_turns") or 10)
         history_turns = int(tool_parameters.get("history_turns") or 0)
         system_prompt = tool_parameters.get("system_prompt") or "你是一个xxxx"
-        skills_root = _detect_skills_root(tool_parameters.get("skills_root"))
+        project_name = str(tool_parameters.get("project_name") or "").strip()
+        _base_skills_root = _detect_skills_root(tool_parameters.get("skills_root"))
+        if _base_skills_root and project_name:
+            skills_root = os.path.join(_base_skills_root, project_name)
+            os.makedirs(skills_root, exist_ok=True)
+        else:
+            skills_root = _base_skills_root
 
         if not query or not isinstance(query, str):
             yield self.create_text_message("❌缺少 query 参数\n")
