@@ -26,6 +26,7 @@ from utils.tools import (
     _split_message_content,
  )
 
+from tools.TM import normalize_project_name
 from utils.skill_agent_constants import HISTORY_TRANSCRIPT_MAX_CHARS
 from utils.skill_agent_debug import _dbg, _model_brief
 from utils.skill_agent_exec import _cleanup_old_temp_sessions, _detect_skills_root
@@ -61,13 +62,16 @@ class SkillAgentTool(Tool):
         memory_turns = int(tool_parameters.get("memory_turns") or 10)
         history_turns = int(tool_parameters.get("history_turns") or 0)
         system_prompt = tool_parameters.get("system_prompt") or "你是一个xxxx"
-        project_name = str(tool_parameters.get("project_name") or "").strip()
+        project_name, _norm_warn = normalize_project_name(str(tool_parameters.get("project_name") or ""))
         _base_skills_root = _detect_skills_root(tool_parameters.get("skills_root"))
         if _base_skills_root and project_name:
             skills_root = os.path.join(_base_skills_root, project_name)
             os.makedirs(skills_root, exist_ok=True)
         else:
             skills_root = _base_skills_root
+
+        if _norm_warn:
+            yield self.create_text_message(f"⚠️ {_norm_warn}\n")
 
         if not query or not isinstance(query, str):
             yield self.create_text_message("❌缺少 query 参数\n")

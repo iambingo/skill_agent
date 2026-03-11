@@ -32,6 +32,25 @@ def get_skills_dir(project_name: str) -> Path:
     return skills_dir
 
 
+def normalize_project_name(raw: str) -> tuple[str, str | None]:
+    """Normalize project name and return (normalized, warning_if_changed)."""
+    normalized = raw.strip().lower()
+    normalized = re.sub(r"[^a-z0-9_\-\u4e00-\u9fff]", "-", normalized)
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
+    if not normalized:
+        return "", "项目名称不能为空或仅含特殊字符"
+    warning = f"项目名称已规范化：「{raw}」→「{normalized}」" if normalized != raw else None
+    return normalized, warning
+
+
+def list_projects() -> list[Path]:
+    root = Path(__file__).resolve().parent.parent
+    skills_root = root / "skills"
+    if not skills_root.exists():
+        return []
+    return sorted([p for p in skills_root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_ctime)
+
+
 def list_skills_sorted(project_name: str) -> list[Path]:
     skills_dir = get_skills_dir(project_name)
     folders = [p for p in skills_dir.iterdir() if p.is_dir()]
@@ -119,9 +138,21 @@ class TMTool(Tool):
     def _invoke(self, tool_parameters: dict[str, Any]) -> Generator[ToolInvokeMessage]:
         command = str(tool_parameters.get("command", "")).strip()
         files_param = tool_parameters.get("files")
-        project_name = str(tool_parameters.get("project_name") or "").strip()
+        raw_project = str(tool_parameters.get("project_name") or "").strip()
+        project_name, norm_warning = normalize_project_name(raw_project)
         if not project_name:
             yield self.create_text_message("❌请填写项目名称（project_name）。\n")
+            return
+        if norm_warning:
+            yield self.create_text_message(f"⚠️ {norm_warning}\n")
+
+        if command in ("查看项目", "项目列表", "列出项目"):
+            projects = list_projects()
+            if not projects:
+                yield self.create_text_message("📭 当前还没有任何项目。\n")
+                return
+            lines = [f"{i + 1}. {p.name}" for i, p in enumerate(projects)]
+            yield self.create_text_message("📂 已有项目列表：\n" + "\n".join(lines) + "\n")
             return
 
         if command in ("查看技能", "查看 技能", "查看"):
