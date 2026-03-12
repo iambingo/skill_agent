@@ -29,21 +29,6 @@ parameters:
       ja_JP: "プロジェクト名。スキルを分離するために使用します。"
     llm_description: "Project name to namespace skills"
     form: form
-  - name: project_token
-    type: string
-    required: false
-    label:
-      en_US: Project Token
-      zh_Hans: 项目令牌
-      pt_BR: Project Token
-      ja_JP: プロジェクトトークン
-    human_description:
-      en_US: "Access token for the project. Set on first upload to lock the project; required for subsequent write operations."
-      zh_Hans: "项目访问令牌。首次新增技能时填写可锁定项目，后续写操作（新增/删除）需提供相同令牌；查看和下载无需令牌"
-      pt_BR: "Token de acesso ao projeto."
-      ja_JP: "プロジェクトアクセストークン。初回設定後、書き込み操作に必要。"
-    llm_description: "Project access token, required for write operations if set"
-    form: form
   - name: command
     type: string
     required: true

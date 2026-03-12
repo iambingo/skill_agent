@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import mimetypes
 import re
 import shutil
@@ -35,31 +34,6 @@ def get_skills_dir(project_name: str) -> Path:
     skills_dir.mkdir(parents=True, exist_ok=True)
     return skills_dir
 
-
-def _token_file(project_name: str) -> Path:
-    return _project_root(project_name) / ".token"
-
-
-def _project_exists(project_name: str) -> bool:
-    return _project_root(project_name).is_dir()
-
-
-def _is_locked(project_name: str) -> bool:
-    return _token_file(project_name).exists()
-
-
-def _save_token(project_name: str, token: str) -> None:
-    h = hashlib.sha256(token.encode()).hexdigest()
-    _token_file(project_name).write_text(h)
-
-
-def _check_token(project_name: str, token: str) -> bool:
-    tf = _token_file(project_name)
-    if not tf.exists():
-        return True  # 未设置令牌，开放访问
-    if not token:
-        return False
-    return tf.read_text().strip() == hashlib.sha256(token.encode()).hexdigest()
 
 
 def normalize_project_name(raw: str) -> tuple[str, str | None]:
@@ -175,8 +149,6 @@ class TMTool(Tool):
             return
         if norm_warning:
             yield self.create_text_message(f"⚠️ {norm_warning}\n")
-        project_token = str(tool_parameters.get("project_token") or "").strip()
-
         if command in ("查看项目", "项目列表", "列出项目"):
             projects = list_projects()
             if not projects:
@@ -196,14 +168,6 @@ class TMTool(Tool):
             return
 
         if command in ("新增技能", "存入技能", "保存技能"):
-            # 令牌校验：项目已存在且已设置令牌时必须验证
-            if _project_exists(project_name) and _is_locked(project_name):
-                if not _check_token(project_name, project_token):
-                    yield self.create_text_message(
-                        f"🔒 项目【{project_name}】已设置访问令牌，project_token 不正确，拒绝写入。\n"
-                    )
-                    return
-
             file_items: list[Any] = []
             if isinstance(files_param, list):
                 file_items = [x for x in files_param if x]
@@ -216,14 +180,7 @@ class TMTool(Tool):
                 yield self.create_text_message("❌未检测到上传的 zip 文件，请提供 files 参数。\n")
                 return
 
-            is_new_project = not _project_exists(project_name)
             skills_dir = get_skills_dir(project_name)
-            # 新项目：如果提供了令牌则锁定
-            if is_new_project and project_token:
-                _save_token(project_name, project_token)
-                yield self.create_text_message(
-                    f"🔐 项目【{project_name}】已创建并设置访问令牌，请妥善保管令牌，后续写操作需要提供。\n"
-                )
             installed: list[str] = []
 
             for file_item in file_items:
@@ -299,11 +256,6 @@ class TMTool(Tool):
 
         m_del = re.match(r"^删除技能(\d+)$", command)
         if m_del:
-            if _is_locked(project_name) and not _check_token(project_name, project_token):
-                yield self.create_text_message(
-                    f"🔒 项目【{project_name}】已设置访问令牌，project_token 不正确，拒绝删除。\n"
-                )
-                return
             idx = int(m_del.group(1))
             skills = list_skills_sorted(project_name)
             if idx < 1 or idx > len(skills):
