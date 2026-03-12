@@ -30,7 +30,7 @@ parameters:
     llm_description: "Project name to namespace skills"
     form: form
   - name: project_token
-    type: secret-input
+    type: string
     required: false
     label:
       en_US: Project Token
