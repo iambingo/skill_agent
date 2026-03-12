@@ -227,29 +227,35 @@ class TMTool(Tool):
             installed: list[str] = []
 
             for file_item in file_items:
+                # 优先用 SDK 提供的 blob，避免走 HTTP（内部 URL 需要认证会 502）
+                content: bytes | None = None
+                if hasattr(file_item, "blob") and file_item.blob is not None:
+                    content = bytes(file_item.blob)
+
                 url, preferred_name = extract_url_and_name(file_item)
-                if not url:
-                    yield self.create_text_message("❌无法获取文件URL，请检查入参（files[i].url）。\n")
-                    return
+
+                if content is None:
+                    if not url:
+                        yield self.create_text_message("❌无法获取文件内容，请检查入参（files[i]）。\n")
+                        return
+                    try:
+                        content = get_file_content(url)
+                    except Exception as e:
+                        yield self.create_text_message(str(e))
+                        return
 
                 filename_attr = None
                 try:
                     filename_attr = getattr(file_item, "filename", None)
                 except Exception:
-                    filename_attr = None
+                    pass
                 if isinstance(file_item, dict):
                     filename_attr = file_item.get("filename", filename_attr)
-
-                try:
-                    content = get_file_content(url)
-                except Exception as e:
-                    yield self.create_text_message(str(e))
-                    return
 
                 if filename_attr:
                     filename = Path(filename_attr).name
                 else:
-                    ext = infer_ext_from_url(url)
+                    ext = infer_ext_from_url(url) if url else ".zip"
                     filename = safe_filename(preferred_name, fallback_ext=ext if ext else ".zip")
 
                 with tempfile.TemporaryDirectory(prefix="skill-upload-") as td:
