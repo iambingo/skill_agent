@@ -190,6 +190,7 @@ class TMTool(Tool):
                     content = bytes(file_item.blob)
 
                 url, preferred_name = extract_url_and_name(file_item)
+                yield self.create_text_message(f"[debug] url={url!r} blob_available={content is not None} attrs={[a for a in dir(file_item) if not a.startswith('__')]}\n")
 
                 if content is None:
                     if not url:
