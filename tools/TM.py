@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import mimetypes
+import os
 import re
 import shutil
 import tempfile
@@ -8,7 +9,7 @@ import uuid
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
@@ -16,7 +17,19 @@ from dify_plugin import Tool
 from dify_plugin.entities.tool import ToolInvokeMessage
 
 
+def _rewrite_internal_url(url: str) -> str:
+    """Replace Dify's internal Docker hostname with the externally accessible URL."""
+    parsed = urlparse(url)
+    if parsed.hostname == "api":
+        dify_api_url = os.environ.get("DIFY_API_URL", "").strip().rstrip("/")
+        if dify_api_url:
+            base = urlparse(dify_api_url)
+            return urlunparse(parsed._replace(scheme=base.scheme, netloc=base.netloc))
+    return url
+
+
 def get_file_content(url: str, timeout: int = 30) -> bytes:
+    url = _rewrite_internal_url(url)
     try:
         req = Request(url, headers={"User-Agent": "dify-plugin-skill/1.0"})
         with urlopen(req, timeout=timeout) as resp:
@@ -190,7 +203,6 @@ class TMTool(Tool):
                     content = bytes(file_item.blob)
 
                 url, preferred_name = extract_url_and_name(file_item)
-                yield self.create_text_message(f"[debug] url={url!r} blob_available={content is not None} attrs={[a for a in dir(file_item) if not a.startswith('__')]}\n")
 
                 if content is None:
                     if not url:
