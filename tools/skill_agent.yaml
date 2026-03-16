@@ -45,6 +45,22 @@ parameters:
     llm_description: "please input your question"
     form: llm
 
+  - name: skill_name
+    type: string
+    required: false
+    label:
+      en_US: Skill Name
+      zh_Hans: 技能名称
+      pt_BR: Skill Name
+      ja_JP: スキル名
+    human_description:
+      en_US: "Optional. If specified, the agent will use only this skill (must match a folder name in the project). If not found, an error is returned."
+      zh_Hans: "可选。若填写，Agent 将直接使用该技能包（需与项目下的文件夹名匹配），跳过 LLM 自动选择；若不存在则报错。"
+      pt_BR: "Opcional. Se especificado, o agente usará apenas esta habilidade."
+      ja_JP: "任意。指定するとエージェントはこのスキルのみを使用します。"
+    llm_description: "Optional skill name to use directly, bypassing automatic skill selection."
+    form: llm
+
   - name: files
     type: files
     required: false

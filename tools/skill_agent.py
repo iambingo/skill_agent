@@ -62,6 +62,7 @@ class SkillAgentTool(Tool):
         memory_turns = int(tool_parameters.get("memory_turns") or 10)
         history_turns = int(tool_parameters.get("history_turns") or 0)
         system_prompt = tool_parameters.get("system_prompt") or "你是一个xxxx"
+        pinned_skill_name = str(tool_parameters.get("skill_name") or "").strip()
         project_name, _norm_warn = normalize_project_name(str(tool_parameters.get("project_name") or ""))
         _base_skills_root = _detect_skills_root(tool_parameters.get("skills_root"))
         if _base_skills_root and project_name:
@@ -227,26 +228,56 @@ class SkillAgentTool(Tool):
 
         skills_index = runtime.load_skills_index()
         try:
-            skills_count = len(skills_index.get("skills") or []) if isinstance(skills_index, dict) else 0
+            skills_list = skills_index.get(“skills”) or [] if isinstance(skills_index, dict) else []
+            skills_count = len(skills_list)
         except Exception:
+            skills_list = []
             skills_count = 0
+
+        # 校验 pinned_skill_name 是否存在
+        if pinned_skill_name:
+            skill_folders = [s.get(“folder”) or “” for s in skills_list if isinstance(s, dict)]
+            if pinned_skill_name not in skill_folders:
+                available = “, “.join(skill_folders) if skill_folders else “（无）”
+                yield self.create_text_message(
+                    f”❌ 指定的技能包 '{pinned_skill_name}' 在当前项目中不存在。\n”
+                    f”可用技能包：{available}\n”
+                )
+                return
+
         _dbg(
-            "start "
+            “start “
             + _model_brief(model)
-            + f" session_dir={session_dir} skills_root={skills_root!s} skills_count={skills_count} "
-            + f"query_len={len(query)}"
+            + f” session_dir={session_dir} skills_root={skills_root!s} skills_count={skills_count} “
+            + f”query_len={len(query)}”
+            + (f” pinned_skill={pinned_skill_name}” if pinned_skill_name else “”)
         )
+
+        if pinned_skill_name:
+            skill_selection_rules = (
+                f”本次已指定使用技能包：**{pinned_skill_name}**，无需判断技能选择，直接进入该技能的渐进式披露流程：\n”
+                + “1) 调用 get_skill_metadata 读取该技能的 SKILL.md（说明文档）\n”
+                + “2) 调用 list_skill_files 查看技能包目录结构\n”
+                + “3) 按需调用 read_skill_file / run_skill_command\n”
+            )
+            skills_context = f”\n当前指定技能包：{pinned_skill_name}\n”
+        else:
+            skill_selection_rules = (
+                “你必须遵循渐进式披露流程：\n”
+                + “1) 只根据技能元数据（name/description）判断可能相关的技能\n”
+                + “2) 触发时才调用 get_skill_metadata 读取 SKILL.md（说明文档）\n”
+                + “3) 任何对技能的进一步操作（list_skill_files/read_skill_file/run_skill_command）之前，必须先 get_skill_metadata；若未执行，本系统会拒绝该调用并要求你先补读说明书。\n”
+            )
+            skills_context = “技能索引（用于判断是否需要调用技能）：\n” + json.dumps(skills_index, ensure_ascii=False) + “\n”
+
         system_content = (
             system_prompt.strip()
-            + "\n\n你是一个使用 Skills 文件夹作为“工具箱”的通用型 Agent。\n"
-            + "\n[会话路径]\n"
-            + f"- session_dir: {session_dir}\n"
-            + f"- skills_root: {skills_root}\n"
-            + "你必须遵循渐进式披露流程：\n"
-            + "1) 只根据技能元数据（name/description）判断可能相关的技能\n"
-            + "2) 触发时才调用 get_skill_metadata 读取 SKILL.md（说明文档）\n"
-            + "3) 任何对技能的进一步操作（list_skill_files/read_skill_file/run_skill_command）之前，必须先 get_skill_metadata；若未执行，本系统会拒绝该调用并要求你先补读说明书。\n"
-            + "4) 按说明书内容执行脚本/命令，或进一步搜索资料前，必须先调用 list_skill_files 查看技能包的目录结构，以确保在正确的目录执行命令。\n"
+            + “\n\n你是一个使用 Skills 文件夹作为”工具箱”的通用型 Agent。\n”
+            + “\n[会话路径]\n”
+            + f”- session_dir: {session_dir}\n”
+            + f”- skills_root: {skills_root}\n”
+            + skill_selection_rules
+            + “4) 按说明书内容执行脚本/命令，或进一步搜索资料前，必须先调用 list_skill_files 查看技能包的目录结构，以确保在正确的目录执行命令。\n”
             + "5) 只有在需要更深信息时，才调用 read_skill_file\n"
             + "6) 只有在明确需要执行脚本/命令时，才调用 run_skill_command\n"
             + "7) 执行前必须先确认技能包内确实存在可执行入口（脚本/模块等），不要猜测模块名；如果缺少可执行入口，则先交付当前可交付产物，并询问用户是否允许你在 temp 目录中自行创建脚本后再尝试生成。\n"
@@ -278,8 +309,7 @@ class SkillAgentTool(Tool):
             + "如果模型支持 function call，请直接发起工具调用；若不支持，则用 JSON 协议响应：\n"
             + '{"type":"tool","name":"get_skill_metadata","arguments":{"skill_name":"xxx"}}\n'
             + '或 {"type":"final","content":"..."}\n\n'
-            + "技能索引（用于判断是否需要调用技能）：\n"
-            + json.dumps(skills_index, ensure_ascii=False)
+            + skills_context
             + (resume_context or "")
         )
 
